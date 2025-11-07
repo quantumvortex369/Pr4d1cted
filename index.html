@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Price Predictor Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="https://cryptologos.cc/logos/bitcoin-btc-logo.png">
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen text-white">
+    <div class="container mx-auto px-4 py-6">
+        <header class="text-center mb-8 relative">
+            <div class="flex items-center justify-center mb-2">
+                <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" alt="Bitcoin" class="h-12 w-12 mr-3">
+                <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">Bitcoin Price Predictor Pro</h1>
+            </div>
+            <div class="flex flex-col items-center space-y-2 mb-4">
+                <p class="text-gray-300 text-center">Análisis en tiempo real y predicción avanzada del precio de Bitcoin</p>
+                <div class="flex items-center space-x-2">
+                    <div id="connectionStatus" class="text-sm px-3 py-1 rounded-full flex items-center bg-gray-700/50 text-gray-300">
+                        <i class="fas fa-circle-notch fa-spin mr-2"></i>
+                        <span>Conectando...</span>
+                    </div>
+                    <div id="lastUpdated" class="text-xs text-gray-400">
+                        <i class="far fa-clock mr-1"></i>
+                        <span>Última actualización: -</span>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute top-0 right-0 flex space-x-2">
+                <button id="themeToggle" class="p-2 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button id="fullscreenBtn" class="p-2 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-expand"></i>
+                </button>
+            </div>
+        </header>
+        
+        <!-- Price Ticker -->
+        <div class="bg-gray-800 rounded-lg p-4 mb-6 shadow-lg border-l-4 border-blue-500">
+            <div class="flex flex-wrap items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="text-2xl font-bold text-blue-400">
+                        <span id="currentPrice">-</span>
+                        <span id="priceChange24h" class="ml-2 text-sm px-2 py-1 rounded">-</span>
+                    </div>
+                    <div class="text-sm text-gray-400">
+                        Vol 24h: <span id="volume24h" class="text-white">-</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-400">Predicción mañana:</span>
+                    <span id="prediction" class="font-bold text-lg">-</span>
+                    <span id="predictionChange" class="text-sm px-2 py-1 rounded"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Gráfico principal -->
+            <div class="lg:col-span-8 bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-white">Análisis de Precio</h2>
+                    <div class="flex space-x-2">
+                        <button class="chart-interval-btn active" data-interval="1d">1D</button>
+                        <button class="chart-interval-btn" data-interval="7d">7D</button>
+                        <button class="chart-interval-btn" data-interval="1m">1M</button>
+                        <button class="chart-interval-btn" data-interval="1y">1Y</button>
+                        <button class="chart-interval-btn" data-interval="all">Todo</button>
+                    </div>
+                </div>
+                <div class="h-96 relative">
+                    <canvas id="priceChart"></canvas>
+                    <div id="chartLoading" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
+                        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                    </div>
+                </div>
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div class="bg-gray-700 p-3 rounded-lg">
+                        <div class="text-sm text-gray-400">Mínimo 24h</div>
+                        <div id="min24h" class="text-lg font-semibold">-</div>
+                    </div>
+                    <div class="bg-gray-700 p-3 rounded-lg">
+                        <div class="text-sm text-gray-400">Máximo 24h</div>
+                        <div id="max24h" class="text-lg font-semibold">-</div>
+                    </div>
+                    <div class="bg-gray-700 p-3 rounded-lg">
+                        <div class="text-sm text-gray-400">Volumen 24h</div>
+                        <div id="volume24hFull" class="text-lg font-semibold">-</div>
+                    </div>
+                    <div class="bg-gray-700 p-3 rounded-lg">
+                        <div class="text-sm text-gray-400">Dominancia</div>
+                        <div id="dominance" class="text-lg font-semibold">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de control -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Controles -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Controles</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Rango de Tiempo</label>
+                            <select id="timeRange" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="1">Últimas 24h</option>
+                                <option value="7">Últimos 7 días</option>
+                                <option value="30" selected>Últimos 30 días</option>
+                                <option value="90">Últimos 90 días</option>
+                                <option value="180">Últimos 6 meses</option>
+                                <option value="365">Último año</option>
+                                <option value="max">Máximo histórico</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Moneda</label>
+                                <select id="currency" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="usd">USD ($)</option>
+                                    <option value="eur">EUR (€)</option>
+                                    <option value="gbp">GBP (£)</option>
+                                    <option value="jpy">JPY (¥)</option>
+                                    <option value="btc">BTC (₿)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Tema</label>
+                                <select id="themeSelect" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="dark">Oscuro</option>
+                                    <option value="light">Claro</option>
+                                    <option value="system">Sistema</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="pt-2">
+                            <button id="updateChart" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-[1.02]">
+                                <i class="fas fa-sync-alt mr-2"></i> Actualizar Datos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Indicadores Técnicos -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Indicadores Técnicos</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-gray-400">RSI (14)</span>
+                                <span id="rsiValue" class="font-semibold">-</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2.5">
+                                <div id="rsiBar" class="bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 h-2.5 rounded-full" style="width: 50%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>0</span>
+                                <span>50</span>
+                                <span>100</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">MACD</span>
+                                <span id="macdValue" class="font-semibold">-</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">Media Móvil (7 días)</span>
+                                <span id="sma7Value" class="font-semibold">-</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">Media Móvil (30 días)</span>
+                                <span id="sma30Value" class="font-semibold">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Noticias Recientes -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-white">Noticias Recientes</h2>
+                        <button id="refreshNews" class="text-blue-400 hover:text-blue-300">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <div id="newsContainer" class="space-y-4 max-h-80 overflow-y-auto pr-2">
+                        <div class="animate-pulse space-y-3">
+                            <div class="h-4 bg-gray-700 rounded w-3/4"></div>
+                            <div class="h-3 bg-gray-700 rounded w-full"></div>
+                            <div class="h-3 bg-gray-700 rounded w-5/6"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de predicciones avanzadas -->
+        <div class="mt-8 bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <h2 class="text-2xl font-semibold mb-6 text-white">Predicciones Avanzadas</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Predicción Corto Plazo -->
+                <div class="bg-gradient-to-br from-blue-900 to-blue-800 p-5 rounded-xl border border-blue-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-blue-200">Corto Plazo</h3>
+                        <span class="px-2 py-1 bg-blue-700 bg-opacity-50 text-blue-200 text-xs rounded">24-48h</span>
+                    </div>
+                    <div class="flex items-end justify-between">
+                        <div>
+                            <div id="shortTermPrediction" class="text-2xl font-bold text-white">-</div>
+                            <div id="shortTermChange" class="text-sm mt-1">-</div>
+                        </div>
+                        <div id="shortTermArrow" class="text-3xl">-</div>
+                    </div>
+                    <div class="mt-4 h-2 bg-blue-700 bg-opacity-30 rounded-full overflow-hidden">
+                        <div id="shortTermConfidence" class="h-full bg-blue-400 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-blue-200 mt-1 flex justify-between">
+                        <span>0%</span>
+                        <span id="shortTermConfidenceText">Confianza: -</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+
+                <!-- Predicción Medio Plazo -->
+                <div class="bg-gradient-to-br from-purple-900 to-purple-800 p-5 rounded-xl border border-purple-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-purple-200">Medio Plazo</h3>
+                        <span class="px-2 py-1 bg-purple-700 bg-opacity-50 text-purple-200 text-xs rounded">3-7 días</span>
+                    </div>
+                    <div class="flex items-end justify-between">
+                        <div>
+                            <div id="midTermPrediction" class="text-2xl font-bold text-white">-</div>
+                            <div id="midTermChange" class="text-sm mt-1">-</div>
+                        </div>
+                        <div id="midTermArrow" class="text-3xl">-</div>
+                    </div>
+                    <div class="mt-4 h-2 bg-purple-700 bg-opacity-30 rounded-full overflow-hidden">
+                        <div id="midTermConfidence" class="h-full bg-purple-400 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-purple-200 mt-1 flex justify-between">
+                        <span>0%</span>
+                        <span id="midTermConfidenceText">Confianza: -</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+
+                <!-- Predicción Largo Plazo -->
+                <div class="bg-gradient-to-br from-indigo-900 to-indigo-800 p-5 rounded-xl border border-indigo-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-indigo-200">Largo Plazo</h3>
+                        <span class="px-2 py-1 bg-indigo-700 bg-opacity-50 text-indigo-200 text-xs rounded">1-4 semanas</span>
+                    </div>
+                    <div class="flex items-end justify-between">
+                        <div>
+                            <div id="longTermPrediction" class="text-2xl font-bold text-white">-</div>
+                            <div id="longTermChange" class="text-sm mt-1">-</div>
+                        </div>
+                        <div id="longTermArrow" class="text-3xl">-</div>
+                    </div>
+                    <div class="mt-4 h-2 bg-indigo-700 bg-opacity-30 rounded-full overflow-hidden">
+                        <div id="longTermConfidence" class="h-full bg-indigo-400 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-indigo-200 mt-1 flex justify-between">
+                        <span>0%</span>
+                        <span id="longTermConfidenceText">Confianza: -</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Análisis de Sentimiento -->
+            <div class="mt-8">
+                <h3 class="text-lg font-semibold mb-3 text-white">Análisis de Sentimiento del Mercado</h3>
+                <div class="bg-gray-700 bg-opacity-50 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium">Miedo y Codicia</span>
+                        <span id="fearGreedIndex" class="px-2 py-1 rounded-full text-xs font-bold">-</span>
+                    </div>
+                    <div class="w-full bg-gray-600 rounded-full h-2.5 mb-2">
+                        <div id="fearGreedBar" class="h-2.5 rounded-full" style="width: 50%; background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981);"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>Miedo Extremo</span>
+                        <span>Neutro</span>
+                        <span>Codicia Extrema</span>
+                    </div>
+                    <div id="sentimentAnalysis" class="mt-3 text-sm text-gray-300">
+                        Cargando análisis de sentimiento...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Historial de Precios -->
+        <div class="mt-8 bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-white">Historial de Precios</h2>
+                <div class="flex space-x-2">
+                    <button id="exportData" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-download mr-2"></i>Exportar Datos
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-700">
+                    <thead class="bg-gray-750">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Fecha</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Precio</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Cambio 24h</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Volumen (24h)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Capitalización</th>
+                        </tr>
+                    </thead>
+                    <tbody id="priceHistoryTable" class="bg-gray-800 divide-y divide-gray-700">
+                        <tr>
+                            <td colspan="5" class="px-6 py-4 text-center text-gray-400">Cargando datos históricos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex justify-between items-center">
+                <div class="text-sm text-gray-400">
+                    Mostrando <span id="currentPage">1</span> de <span id="totalPages">-</span> páginas
+                </div>
+                <div class="flex space-x-2">
+                    <button id="prevPage" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button id="nextPage" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50" disabled>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-12 py-6 border-t border-gray-800">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center space-x-2 mb-4 md:mb-0">
+                    <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" alt="Bitcoin" class="h-6 w-6">
+                    <span class="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">Bitcoin Price Predictor Pro</span>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="https://github.com/quantumvortex369" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition-colors" title="GitHub">
+                        <i class="fab fa-github text-xl"></i>
+                    </a>
+                    <a href="https://x.com/x2468372758387" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition-colors" title="Twitter">
+                        <i class="fab fa-x-twitter text-xl"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="mt-6 pt-6 border-t border-gray-800 text-center text-sm text-gray-500">
+                <p>© 2023 Bitcoin Price Predictor Pro. No es asesoramiento financiero. Los criptoactivos son volátiles. Invierte con precaución.</p>
+                <p class="mt-2">Última actualización: <span id="lastUpdated">-</span></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // Inicializar tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar tooltips con Tippy.js si está cargado
+            if (typeof tippy !== 'undefined') {
+                tippy('[data-tippy-content]');
+            }
+            
+            // Manejar el cambio de tema
+            const themeSelect = document.getElementById('themeSelect');
+            if (themeSelect) {
+                themeSelect.addEventListener('change', function() {
+                    document.documentElement.setAttribute('data-theme', this.value);
+                    localStorage.setItem('theme', this.value);
+                });
+                
+                // Cargar tema guardado
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                themeSelect.value = savedTheme;
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+            
+            // Botón de pantalla completa
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            if (fullscreenBtn) {
+                fullscreenBtn.addEventListener('click', toggleFullscreen);
+            }
+            
+            // Botón de tema oscuro/claro
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    const isDark = document.documentElement.classList.toggle('dark');
+                    const icon = this.querySelector('i');
+                    icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+                    localStorage.setItem('darkMode', isDark);
+                });
+                
+                // Cargar preferencia de tema oscuro
+                if (localStorage.getItem('darkMode') === 'true') {
+                    document.documentElement.classList.add('dark');
+                    themeToggle.querySelector('i').className = 'fas fa-sun';
+                }
+            }
+        });
+        
+        // Función para alternar pantalla completa
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error al intentar entrar en pantalla completa: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+        
+        // Detectar cambios en el estado de pantalla completa
+        document.addEventListener('fullscreenchange', () => {
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            if (fullscreenBtn) {
+                const icon = fullscreenBtn.querySelector('i');
+                if (document.fullscreenElement) {
+                    icon.className = 'fas fa-compress';
+                } else {
+                    icon.className = 'fas fa-expand';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
